@@ -16,6 +16,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/pages", express.static(path.join(__dirname, "pages")));
+
+app.get("/chat-test", function (req, res) {
+  res.sendFile(path.join(__dirname, "pages", "chat.html"));
+});
 
 //domain:port/api/v1/products
 //domain:port/api/v1/users

@@ -29,6 +29,8 @@ var io = new socketIO.Server(server, {
 app.set("io", io);
 
 io.on("connection", function (socket) {
+  socket.join("global");
+
   socket.on("register", function (userId) {
     if (!userId) {
       return;
@@ -41,6 +43,45 @@ io.on("connection", function (socket) {
       return;
     }
     socket.join(String(userId));
+  });
+
+  socket.on("joinRoom", function (roomName) {
+    if (!roomName) {
+      return;
+    }
+    socket.join(String(roomName));
+  });
+
+  socket.on("chat:test", function (payload) {
+    if (!payload || !payload.text) {
+      return;
+    }
+
+    let text = String(payload.text).trim();
+    if (!text) {
+      return;
+    }
+
+    let from = payload.from ? String(payload.from) : "anonymous";
+    let to = payload.to ? String(payload.to) : "";
+    let room = payload.room ? String(payload.room) : "global";
+
+    let outgoingMessage = {
+      id: Date.now().toString(36),
+      from: from,
+      to: to,
+      room: room,
+      text: text,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (to) {
+      io.to(from).emit("chat:test", outgoingMessage);
+      io.to(to).emit("chat:test", outgoingMessage);
+      return;
+    }
+
+    io.to(room).emit("chat:test", outgoingMessage);
   });
 });
 

@@ -1,30 +1,10 @@
 var express = require("express");
 var router = express.Router();
-let multer = require("multer");
-let path = require("path");
 let mongoose = require("mongoose");
 let { checkLogin } = require("../utils/authHandler");
+let { uploadMessageFile } = require("../utils/upload");
 let messageModel = require("../schemas/messages");
 let userModel = require("../schemas/users");
-
-let storageSetting = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    let ext = path.extname(file.originalname);
-    let name =
-      Date.now() + "-" + Math.round(Math.random() * 2000_000_000) + ext;
-    cb(null, name);
-  },
-});
-
-let uploadFile = multer({
-  storage: storageSetting,
-  limits: {
-    fileSize: 10 * 1024 * 1024,
-  },
-});
 
 router.get("/", checkLogin, async function (req, res, next) {
   try {
@@ -135,7 +115,7 @@ router.get("/:userID", checkLogin, async function (req, res, next) {
 router.post(
   "/",
   checkLogin,
-  uploadFile.single("file"),
+  uploadMessageFile.single("file"),
   async function (req, res, next) {
     try {
       let from = String(req.user._id);

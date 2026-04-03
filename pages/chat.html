@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Realtime Socket Chat Tester</title>
+    <style>
+      :root {
+        --bg: #f4f7f6;
+        --card: #ffffff;
+        --primary: #075e54;
+        --primary-dark: #06463f;
+        --line: #d9e0dd;
+        --text: #17231f;
+        --muted: #60706b;
+        --sent: #dcf8c6;
+        --received: #e8f4ff;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: radial-gradient(circle at top right, #effaf7, var(--bg));
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        color: var(--text);
+      }
+
+      .chat-container {
+        width: min(640px, 95vw);
+        height: min(760px, 92vh);
+        background: var(--card);
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 14px 40px rgba(7, 94, 84, 0.14);
+      }
+
+      .chat-header {
+        padding: 15px;
+        background: linear-gradient(135deg, var(--primary), #0b7c70);
+        color: white;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ffcf4d;
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22);
+      }
+
+      .status-dot.connected {
+        background: #6dff8a;
+      }
+
+      .chat-tools {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding: 12px;
+        border-bottom: 1px solid var(--line);
+        background: #fafcfc;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .field label {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .field input {
+        border: 1px solid var(--line);
+        padding: 9px 10px;
+        border-radius: 8px;
+        outline: none;
+        font-size: 13px;
+      }
+
+      .field input:focus {
+        border-color: #78bdb4;
+        box-shadow: 0 0 0 3px rgba(7, 94, 84, 0.12);
+      }
+
+      .tool-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: 8px;
+      }
+
+      .tool-actions button {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        padding: 9px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .tool-actions button.secondary {
+        background: #e7f2f0;
+        color: var(--primary-dark);
+      }
+
+      .chat-messages {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: linear-gradient(180deg, #fefefe, #f9fbfa);
+      }
+
+      .message {
+        max-width: 82%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        font-size: 14px;
+        line-height: 1.4;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      }
+
+      .received {
+        background: var(--received);
+        align-self: flex-start;
+        border-bottom-left-radius: 0;
+      }
+
+      .sent {
+        background: var(--sent);
+        align-self: flex-end;
+        border-bottom-right-radius: 0;
+      }
+
+      .system {
+        align-self: center;
+        font-size: 12px;
+        color: var(--muted);
+        background: #eef3f1;
+        border-radius: 999px;
+        padding: 5px 10px;
+      }
+
+      .meta {
+        display: block;
+        margin-top: 4px;
+        font-size: 11px;
+        opacity: 0.75;
+      }
+
+      .chat-input {
+        display: flex;
+        padding: 10px;
+        border-top: 1px solid var(--line);
+        gap: 8px;
+        background: #fff;
+      }
+
+      .chat-input input {
+        flex: 1;
+        border: 1px solid var(--line);
+        padding: 10px;
+        border-radius: 8px;
+        outline: none;
+        background: #fbfdfd;
+      }
+
+      .chat-input button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      @media (max-width: 650px) {
+        .chat-tools {
+          grid-template-columns: 1fr;
+        }
+
+        .chat-container {
+          height: 100vh;
+          width: 100vw;
+          border-radius: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="chat-header">
+        <span>Realtime Socket Chat Tester</span>
+        <span class="status"
+          ><span class="status-dot" id="statusDot"></span
+          ><span id="statusText">Disconnected</span></span
+        >
+      </div>
+
+      <div class="chat-tools">
+        <div class="field">
+          <label for="userIdInput">User ID (room cá nhân)</label>
+          <input id="userIdInput" type="text" placeholder="vd: user-a" />
+        </div>
+
+        <div class="field">
+          <label for="roomInput">Room chung</label>
+          <input id="roomInput" type="text" value="global" />
+        </div>
+
+        <div class="field">
+          <label for="targetInput">Gửi riêng cho user (optional)</label>
+          <input id="targetInput" type="text" placeholder="vd: user-b" />
+        </div>
+
+        <div class="field">
+          <label for="serverInput">Socket Server URL</label>
+          <input id="serverInput" type="text" readonly />
+        </div>
+
+        <div class="tool-actions">
+          <button id="connectBtn">Connect</button>
+          <button class="secondary" id="joinRoomBtn">Join Room</button>
+          <button class="secondary" id="clearBtn">Clear</button>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chatBox">
+        <div class="system">
+          Mở 2 tab và dùng User ID khác nhau để test realtime.
+        </div>
+      </div>
+
+      <div class="chat-input">
+        <input
+          id="messageInput"
+          type="text"
+          placeholder="Nhập tin nhắn để gửi..."
+        />
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const chatBox = document.getElementById("chatBox");
+      const messageInput = document.getElementById("messageInput");
+      const userIdInput = document.getElementById("userIdInput");
+      const roomInput = document.getElementById("roomInput");
+      const targetInput = document.getElementById("targetInput");
+      const serverInput = document.getElementById("serverInput");
+      const connectBtn = document.getElementById("connectBtn");
+      const joinRoomBtn = document.getElementById("joinRoomBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const sendBtn = document.getElementById("sendBtn");
+      const statusDot = document.getElementById("statusDot");
+      const statusText = document.getElementById("statusText");
+
+      const randomId = "user-" + Math.random().toString(36).slice(2, 7);
+      userIdInput.value = localStorage.getItem("chat-test-user-id") || randomId;
+      serverInput.value = window.location.origin;
+
+      let socket = null;
+
+      function setConnectionStatus(isConnected, text) {
+        statusDot.classList.toggle("connected", Boolean(isConnected));
+        statusText.textContent = text;
+      }
+
+      function addSystemMessage(text) {
+        const el = document.createElement("div");
+        el.className = "system";
+        el.textContent = text;
+        chatBox.appendChild(el);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      function appendChatMessage({ sender, text, createdAt, isOwn }) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "message " + (isOwn ? "sent" : "received");
+
+        const time = createdAt
+          ? new Date(createdAt).toLocaleTimeString()
+          : new Date().toLocaleTimeString();
+
+        wrapper.innerHTML = `
+          <strong>${sender}</strong><br />
+          ${text}
+          <span class="meta">${time}</span>
+        `;
+
+        chatBox.appendChild(wrapper);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      function getCurrentUserId() {
+        const userId = userIdInput.value.trim() || randomId;
+        userIdInput.value = userId;
+        localStorage.setItem("chat-test-user-id", userId);
+        return userId;
+      }
+
+      function connectSocket() {
+        if (socket && socket.connected) {
+          addSystemMessage("Socket đã kết nối.");
+          return;
+        }
+
+        const serverUrl = serverInput.value.trim() || window.location.origin;
+        const userId = getCurrentUserId();
+        const room = roomInput.value.trim() || "global";
+
+        socket = io(serverUrl, { transports: ["websocket", "polling"] });
+
+        socket.on("connect", function () {
+          setConnectionStatus(true, "Connected");
+          socket.emit("register", userId);
+          socket.emit("registerUser", userId);
+          socket.emit("joinRoom", room);
+          addSystemMessage(
+            `Connected: ${socket.id} | User: ${userId} | Room: ${room}`,
+          );
+        });
+
+        socket.on("disconnect", function () {
+          setConnectionStatus(false, "Disconnected");
+          addSystemMessage("Socket disconnected.");
+        });
+
+        socket.on("connect_error", function (err) {
+          setConnectionStatus(false, "Connect Error");
+          addSystemMessage(
+            "Connect error: " + (err && err.message ? err.message : "unknown"),
+          );
+        });
+
+        socket.on("chat:test", function (msg) {
+          const currentUser = getCurrentUserId();
+          appendChatMessage({
+            sender: msg.from || "unknown",
+            text: msg.text || "",
+            createdAt: msg.createdAt,
+            isOwn: String(msg.from) === String(currentUser),
+          });
+        });
+
+        socket.on("message:new", function (msg) {
+          const currentUser = getCurrentUserId();
+          const senderId = msg.from && msg.from._id ? msg.from._id : msg.from;
+          const senderName =
+            msg.from && (msg.from.fullName || msg.from.username)
+              ? msg.from.fullName || msg.from.username
+              : senderId || "unknown";
+          const text =
+            msg.messageContent && msg.messageContent.text
+              ? msg.messageContent.type === "file"
+                ? "[FILE] " + msg.messageContent.text
+                : msg.messageContent.text
+              : "(empty message)";
+
+          appendChatMessage({
+            sender: senderName,
+            text: text,
+            createdAt: msg.createdAt,
+            isOwn: String(senderId) === String(currentUser),
+          });
+        });
+      }
+
+      function joinRoom() {
+        if (!socket || !socket.connected) {
+          addSystemMessage("Hãy connect trước khi join room.");
+          return;
+        }
+
+        const room = roomInput.value.trim() || "global";
+        socket.emit("joinRoom", room);
+        addSystemMessage("Joined room: " + room);
+      }
+
+      function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text) {
+          return;
+        }
+
+        if (!socket || !socket.connected) {
+          addSystemMessage("Socket chưa connect. Đang thử kết nối...");
+          connectSocket();
+          return;
+        }
+
+        const payload = {
+          from: getCurrentUserId(),
+          to: targetInput.value.trim(),
+          room: roomInput.value.trim() || "global",
+          text: text,
+        };
+
+        socket.emit("chat:test", payload);
+        messageInput.value = "";
+        messageInput.focus();
+      }
+
+      connectBtn.addEventListener("click", connectSocket);
+      joinRoomBtn.addEventListener("click", joinRoom);
+      clearBtn.addEventListener("click", function () {
+        chatBox.innerHTML = "";
+      });
+      sendBtn.addEventListener("click", sendMessage);
+      messageInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          sendMessage();
+        }
+      });
+    </script>
+  </body>
+</html>
